@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>不老村守衛戰｜GitHub 直連卡牌後台</title>
+<style>
+:root{--green:#365d4b;--line:#cdbf9f;--red:#b65151;--blue:#55769c;--gold:#a8791f}
+*{box-sizing:border-box}body{margin:0;background:#f3efe6;font-family:"Microsoft JhengHei","PingFang TC",Arial,sans-serif;color:#2e2a26}.app{max-width:1180px;margin:auto;padding:20px}.panel,header{background:#fff;border:2px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px;box-shadow:0 8px 20px rgba(0,0,0,.05)}header{border:3px solid var(--green)}h1,h2,h3{margin-top:0}h1{color:#294b3b}.sub,.note{color:#6b655d}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}label{display:block;font-weight:800;margin-bottom:6px}input,select,textarea{width:100%;padding:11px 12px;border:2px solid var(--line);border-radius:10px;font-size:16px;background:#fffdf8}textarea{min-height:90px;resize:vertical}button,.btn{border:0;border-radius:10px;padding:11px 15px;background:var(--green);color:#fff;font-weight:800;font-size:15px;cursor:pointer;text-decoration:none;display:inline-block}button.gray,.btn.gray{background:#666}button.red{background:var(--red)}button.blue{background:var(--blue)}button.gold{background:var(--gold)}.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.hidden{display:none!important}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#eee7d8;font-size:12px;font-weight:800}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.stat{background:#f7f4ed;border:2px solid #d7c9ac;border-radius:14px;text-align:center;padding:12px}.big{font-size:26px;font-weight:900}.cards{display:grid;gap:10px}.cardrow{border:2px solid #d8cbaa;border-radius:14px;padding:12px;background:#fffdf8;display:grid;grid-template-columns:90px 1fr auto;gap:12px;align-items:center}.code{font-size:20px;font-weight:900}.rowactions{display:flex;gap:6px;flex-wrap:wrap}.rowactions button{padding:7px 10px;font-size:13px}.ok{background:#e9f5ec;border:2px solid #99c3a5;border-radius:12px;padding:10px}.warn{background:#fff4d8;border:2px solid #e1c06e;border-radius:12px;padding:12px}.err{background:#fde8e8;border:2px solid #d89c9c;border-radius:12px;padding:10px}.toolbar{display:grid;grid-template-columns:1fr 220px;gap:10px}.githubBox{background:#f7f7f7;border:2px solid #d4d4d4;border-radius:14px;padding:14px}@media(max-width:800px){.grid,.grid3,.stats,.toolbar{grid-template-columns:1fr}.cardrow{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+<h1>🗂️ 不老村守衛戰｜GitHub 直連後台</h1>
+<div class="sub">新增、編輯、刪除卡牌，按一次即可直接更新 GitHub 的 cards.json。</div>
+<div class="controls"><a class="btn gray" href="./">← 回遊戲首頁</a><a class="btn gray" href="./admin.html">開啟舊版離線後台</a></div>
+</header>
+
+<section class="panel">
+<h2>🔐 GitHub 寫入設定</h2>
+<div class="githubBox">
+<div class="grid">
+<div><label>Repository</label><input value="zxc9253011-lgtm/CARD-GAME" disabled></div>
+<div><label>Branch</label><input value="main" disabled></div>
+</div>
+<div style="margin-top:12px"><label>Fine-grained Personal Access Token</label><input id="token" type="password" autocomplete="off" placeholder="github_pat_..."><div class="note">Token 不會寫入 GitHub，也不會存到 localStorage；只暫存在這個分頁的 sessionStorage。</div></div>
+<div class="controls"><button class="blue" onclick="rememberToken()">儲存本工作階段 Token</button><button class="gray" onclick="testGitHub()">測試 GitHub 連線</button><button class="red" onclick="forgetToken()">清除 Token</button></div>
+<div id="gitMsg" class="note" style="margin-top:10px">尚未連線。</div>
+</div>
+</section>
+
+<section class="panel">
+<h2>📊 資料庫狀態</h2>
+<div class="stats"><div class="stat">總卡牌<div class="big" id="totalCount">0</div></div><div class="stat">知識卡<div class="big" id="knowledgeCount">0</div></div><div class="stat">怪獸卡<div class="big" id="monsterCount">0</div></div><div class="stat">裝備卡<div class="big" id="equipmentCount">0</div></div></div>
+<div id="loadMsg" class="ok" style="margin-top:10px">正在讀取 cards.json…</div>
+</section>
+
+<section class="panel">
+<h2 id="formTitle">➕ 新增卡牌</h2>
+<div class="grid3">
+<div><label>卡牌類型</label><select id="type" onchange="onTypeChange()"><option value="knowledge">知識卡</option><option value="monster">怪獸卡</option><option value="fate">命運卡</option><option value="equipment">裝備卡</option><option value="boss">魔王卡</option><option value="role">身分卡</option><option value="life">生命卡</option></select></div>
+<div><label>卡號</label><input id="code"></div>
+<div><label>名稱</label><input id="name"></div>
+</div>
+<div class="note" id="nextHint"></div>
+
+<div id="knowledgeFields" class="typeFields">
+<div class="grid"><div><label>問題</label><textarea id="question"></textarea></div><div><label>衛教內容</label><textarea id="teach"></textarea></div></div>
+<div class="grid3"><div><label>A 選項</label><input id="optA"></div><div><label>B 選項</label><input id="optB"></div><div><label>C 選項</label><input id="optC"></div></div>
+<div style="margin-top:12px"><label>正確答案</label><select id="answer"><option>A</option><option>B</option><option>C</option></select></div>
+</div>
+
+<div id="monsterFields" class="typeFields hidden"><div class="grid3"><div><label>HP（5～10）</label><input id="monsterHp" type="number" min="5" max="10" value="5"></div><div><label>ATK</label><input id="monsterAtk" type="number" min="0" value="2"></div><div><label>弱點</label><select id="weak"><option>力量</option><option>平衡</option><option>心肺</option><option>活動度</option><option>認知</option><option>無</option></select></div></div><div style="margin-top:12px"><label>特殊說明</label><textarea id="special"></textarea></div></div>
+
+<div id="fateFields" class="typeFields hidden"><div class="grid"><div><label>事件效果</label><textarea id="fateEffect"></textarea></div><div><label>生命變化</label><input id="hpChange" type="number" value="0"></div></div></div>
+
+<div id="equipmentFields" class="typeFields hidden"><div class="grid3"><div><label>類型</label><select id="category"><option>力量</option><option>平衡</option><option>心肺</option><option>活動度</option><option>認知</option></select></div><div><label>動作</label><input id="move"></div><div><label>戰鬥動作</label><select id="combatAction"><option value="attack">攻擊</option><option value="shield">防禦</option><option value="heal">補血</option><option value="cognitive">認知</option></select></div></div><div class="grid3" style="margin-top:12px"><div><label>主要數值</label><input id="combatValue" type="number" value="1"></div><div><label>弱點額外傷害</label><input id="weakDamage" type="number" value="0"></div><div><label>認知弱點值</label><input id="weakValue" type="number" value="0"></div></div><div style="margin-top:12px"><label>效果說明</label><textarea id="equipmentEffect"></textarea></div></div>
+
+<div id="bossFields" class="typeFields hidden"><div class="grid3"><div><label>階段</label><input id="stage" type="number" min="1" value="1"></div><div><label>HP</label><input id="bossHp" type="number" min="0" value="0"></div><div><label>ATK</label><input id="bossAtk" type="number" min="0" value="2"></div></div><div style="margin-top:12px"><label>效果</label><textarea id="bossEffect"></textarea></div></div>
+<div id="roleFields" class="typeFields hidden"><label>身分說明</label><textarea id="roleDescription"></textarea></div>
+<div id="lifeFields" class="typeFields hidden"><label>生命值</label><input id="lifeValue" type="number" value="2"></div>
+
+<div class="controls"><button onclick="saveLocalCard()" id="saveBtn">加入本次修改</button><button class="gray" onclick="resetForm()">清空表單</button><button class="gold" onclick="saveToGitHub()">☁️ 儲存全部修改到 GitHub</button></div>
+<div id="formMsg" style="margin-top:10px"></div>
+</section>
+
+<section class="panel"><h2>📚 目前卡牌</h2><div class="toolbar"><input id="search" oninput="renderList()" placeholder="搜尋卡號或名稱"><select id="filter" onchange="renderList()"><option value="all">全部類型</option><option value="knowledge">知識卡</option><option value="monster">怪獸卡</option><option value="fate">命運卡</option><option value="equipment">裝備卡</option><option value="boss">魔王卡</option><option value="role">身分卡</option><option value="life">生命卡</option></select></div><div id="cardList" class="cards" style="margin-top:12px"></div></section>
+</div>
+<script>
+const OWNER='zxc9253011-lgtm',REPO='CARD-GAME',BRANCH='main',FILE='cards.json';
+let db={version:5,cards:{}};let editingCode=null;
+const prefix={knowledge:'K',monster:'M',fate:'F',equipment:'E',boss:'B',role:'R',life:'L'};
+const labels={knowledge:'知識卡',monster:'怪獸卡',fate:'命運卡',equipment:'裝備卡',boss:'魔王卡',role:'身分卡',life:'生命卡'};
+const $=id=>document.getElementById(id);const val=id=>$(id).value.trim();const num=id=>Number($(id).value)||0;
+function token(){return $('token').value.trim()||sessionStorage.getItem('cardGameGitHubToken')||''}
+function rememberToken(){const t=$('token').value.trim();if(!t){gitMsg('請先輸入 Token',false);return}sessionStorage.setItem('cardGameGitHubToken',t);gitMsg('✅ Token 已暫存於本工作階段。',true)}
+function forgetToken(){sessionStorage.removeItem('cardGameGitHubToken');$('token').value='';gitMsg('已清除 Token。',true)}
+function gitMsg(m,ok){$('gitMsg').className=ok?'ok':'err';$('gitMsg').textContent=m}
+async function gh(path,opts={}){const t=token();if(!t)throw new Error('尚未輸入 GitHub Token');const headers={Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',Authorization:'Bearer '+t,...(opts.headers||{})};return fetch('https://api.github.com'+path,{...opts,headers})}
+async function testGitHub(){try{const r=await gh(`/repos/${OWNER}/${REPO}/contents/${FILE}?ref=${BRANCH}`);if(!r.ok)throw new Error((await r.json()).message||('HTTP '+r.status));const j=await r.json();gitMsg('✅ GitHub 連線成功，可寫入 '+j.path+'。',true)}catch(e){gitMsg('❌ '+e.message,false)}}
+async function loadLive(){const r=await fetch('./cards.json?direct='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('無法讀取 cards.json');db=await r.json();if(!db.cards)db.cards={};refresh();$('loadMsg').textContent='✅ 已載入網站正式 cards.json。'}
+function refresh(){updateStats();renderList();updateNextHint()}
+function updateStats(){const v=Object.values(db.cards);$('totalCount').textContent=v.length;$('knowledgeCount').textContent=v.filter(x=>x.type==='knowledge').length;$('monsterCount').textContent=v.filter(x=>x.type==='monster').length;$('equipmentCount').textContent=v.filter(x=>x.type==='equipment').length}
+function nextCode(type){const p=prefix[type];let max=0;Object.keys(db.cards).forEach(c=>{const m=c.match(new RegExp('^'+p+'(\\d{3})$'));if(m)max=Math.max(max,Number(m[1]))});return p+String(max+1).padStart(3,'0')}
+function updateNextHint(){const t=$('type').value;$('nextHint').textContent='建議下一個編號：'+nextCode(t);if(!editingCode&&!$('code').value)$('code').value=nextCode(t)}
+function onTypeChange(){document.querySelectorAll('.typeFields').forEach(x=>x.classList.add('hidden'));$(val('type')+'Fields').classList.remove('hidden');if(!editingCode)$('code').value='';updateNextHint()}
+function cardFromForm(){const type=val('type'),code=val('code').toUpperCase(),name=val('name');if(!new RegExp('^'+prefix[type]+'\\d{3}$').test(code))throw new Error('卡號格式錯誤，應為 '+prefix[type]+'001 形式');if(!name)throw new Error('請輸入名稱');let c={type,name};if(type==='knowledge')c={...c,question:val('question'),options:[val('optA'),val('optB'),val('optC')],answer:val('answer'),teach:val('teach')};if(type==='monster')c={...c,hp:Math.min(10,Math.max(5,num('monsterHp'))),atk:num('monsterAtk'),weak:val('weak'),special:val('special')};if(type==='fate')c={...c,effect:val('fateEffect'),hpChange:num('hpChange')};if(type==='equipment'){const combat={action:val('combatAction'),value:num('combatValue')};if(num('weakDamage'))combat.weakDamage=num('weakDamage');if(num('weakValue'))combat.weakValue=num('weakValue');c={...c,category:val('category'),move:val('move'),effect:val('equipmentEffect'),combat}}if(type==='boss')c={...c,stage:num('stage'),effect:val('bossEffect'),...(num('bossHp')?{hp:num('bossHp')}:{}) ,...(num('bossAtk')?{atk:num('bossAtk')}:{})};if(type==='role')c={...c,description:val('roleDescription')};if(type==='life')c={...c,value:num('lifeValue')};return{code,c}}
+function saveLocalCard(){try{const {code,c}=cardFromForm();if(!editingCode&&db.cards[code])throw new Error(code+' 已存在');if(editingCode&&editingCode!==code)delete db.cards[editingCode];db.cards[code]=c;db.version=(Number(db.version)||5)+1;editingCode=null;showMsg('✅ 已加入本次修改；尚未同步 GitHub。',true);resetForm(false);refresh()}catch(e){showMsg('❌ '+e.message,false)}}
+function showMsg(m,ok){$('formMsg').className=ok?'ok':'err';$('formMsg').textContent=m}
+function renderList(){const q=val('search').toUpperCase(),f=val('filter');const entries=Object.entries(db.cards).filter(([code,c])=>(f==='all'||c.type===f)&&(!q||code.includes(q)||(c.name||'').toUpperCase().includes(q))).sort((a,b)=>a[0].localeCompare(b[0]));$('cardList').innerHTML=entries.map(([code,c])=>`<div class="cardrow"><div class="code">${code}</div><div><b>${c.name||''}</b><div class="note">${labels[c.type]||c.type}</div></div><div class="rowactions"><button class="blue" onclick="editCard('${code}')">編輯</button><button class="red" onclick="deleteCard('${code}')">刪除</button></div></div>`).join('')||'<div class="note">沒有符合的卡牌。</div>'}
+function editCard(code){const c=db.cards[code];editingCode=code;$('type').value=c.type;onTypeChange();$('code').value=code;$('name').value=c.name||'';if(c.type==='knowledge'){$('question').value=c.question||'';$('teach').value=c.teach||'';$('optA').value=c.options?.[0]||'';$('optB').value=c.options?.[1]||'';$('optC').value=c.options?.[2]||'';$('answer').value=c.answer||'A'}if(c.type==='monster'){$('monsterHp').value=c.hp||5;$('monsterAtk').value=c.atk||2;$('weak').value=c.weak||'無';$('special').value=c.special||''}if(c.type==='fate'){$('fateEffect').value=c.effect||'';$('hpChange').value=c.hpChange||0}if(c.type==='equipment'){$('category').value=c.category||'力量';$('move').value=c.move||'';$('equipmentEffect').value=c.effect||'';$('combatAction').value=c.combat?.action||'attack';$('combatValue').value=c.combat?.value||1;$('weakDamage').value=c.combat?.weakDamage||0;$('weakValue').value=c.combat?.weakValue||0}if(c.type==='boss'){$('stage').value=c.stage||1;$('bossHp').value=c.hp||0;$('bossAtk').value=c.atk||0;$('bossEffect').value=c.effect||''}if(c.type==='role')$('roleDescription').value=c.description||'';if(c.type==='life')$('lifeValue').value=c.value||2;$('formTitle').textContent='✏️ 編輯 '+code;$('saveBtn').textContent='儲存本次修改';window.scrollTo({top:0,behavior:'smooth'})}
+function deleteCard(code){if(!confirm('確定刪除 '+code+'？'))return;delete db.cards[code];db.version=(Number(db.version)||5)+1;refresh();showMsg('🗑️ 已從本次修改刪除 '+code+'；尚未同步 GitHub。',true)}
+function resetForm(clearMsg=true){editingCode=null;document.querySelectorAll('input:not([disabled]),textarea').forEach(el=>{if(el.id!=='token')el.value=''});$('monsterHp').value=5;$('monsterAtk').value=2;$('combatValue').value=1;$('weakDamage').value=0;$('weakValue').value=0;$('stage').value=1;$('bossHp').value=0;$('bossAtk').value=2;$('lifeValue').value=2;$('formTitle').textContent='➕ 新增卡牌';$('saveBtn').textContent='加入本次修改';onTypeChange();if(clearMsg)$('formMsg').textContent=''}
+function utf8ToBase64(s){const bytes=new TextEncoder().encode(s);let bin='';for(const b of bytes)bin+=String.fromCharCode(b);return btoa(bin)}
+async function saveToGitHub(){try{rememberToken();gitMsg('⏳ 正在取得最新 cards.json…',true);let r=await gh(`/repos/${OWNER}/${REPO}/contents/${FILE}?ref=${BRANCH}`);if(!r.ok)throw new Error((await r.json()).message||('GET '+r.status));const current=await r.json();const content=JSON.stringify(db,null,2)+'\n';gitMsg('⏳ 正在寫入 GitHub…',true);r=await gh(`/repos/${OWNER}/${REPO}/contents/${FILE}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'Update card database from admin',content:utf8ToBase64(content),sha:current.sha,branch:BRANCH})});if(!r.ok)throw new Error((await r.json()).message||('PUT '+r.status));const out=await r.json();gitMsg('✅ 已直接更新 GitHub cards.json。Commit: '+out.commit.sha.slice(0,7),true);$('loadMsg').textContent='✅ GitHub 已同步。GitHub Pages 可能需要短暫時間重新部署。'}catch(e){gitMsg('❌ 儲存失敗：'+e.message,false)}}
+window.addEventListener('DOMContentLoaded',async()=>{const t=sessionStorage.getItem('cardGameGitHubToken');if(t)$('token').value=t;try{await loadLive()}catch(e){$('loadMsg').className='err';$('loadMsg').textContent='❌ '+e.message}onTypeChange()});
+</script>
+</body>
+</html>
