@@ -2,7 +2,11 @@ let cardDB={};
 let hp=20,advNow=0,advTotal=12,playerCount=4;
 let battle=null;
 let pendingCardCode='';
-let mediaStream=null,scanTimer=null;
+
+let scannerStream=null;
+let scannerRAF=null;
+let scannerMode='game';
+let scannerBusy=false;
 
 async function loadDatabase(){
   const res=await fetch('./cards.json?v=4',{cache:'no-store'});
@@ -10,29 +14,51 @@ async function loadDatabase(){
   const data=await res.json();
   cardDB=data.cards||{};
   const card=new URLSearchParams(location.search).get('card');
-  if(card){pendingCardCode=normalizeCode(card);document.getElementById('cardCode').value=pendingCardCode;}
+  if(card){
+    pendingCardCode=normalizeCode(card);
+    const input=document.getElementById('cardCode');
+    if(input) input.value=pendingCardCode;
+    const s=document.getElementById('setupScanStatus');
+    if(s) s.textContent=`已偵測網址卡牌：${pendingCardCode}`;
+  }
 }
 
 function startGame(){
   const n=parseInt(document.getElementById('adventureTotal').value,10);
   if(!Number.isFinite(n)||n<1){alert('冒險卡數量至少 1 張');return;}
-  advTotal=n;playerCount=parseInt(document.getElementById('players').value,10)||4;
+  advTotal=n;
+  playerCount=parseInt(document.getElementById('players').value,10)||4;
   hp=20;advNow=0;battle=null;
   document.getElementById('setup').classList.add('hidden');
   document.getElementById('game').classList.remove('hidden');
   document.getElementById('advTotalText').textContent=advTotal;
   updateUI();
-  const code=normalizeCode(document.getElementById('cardCode').value||pendingCardCode);
-  if(code){document.getElementById('cardCode').value=code;identifyCard();}
+  const input=document.getElementById('cardCode');
+  const code=normalizeCode((input&&input.value)||pendingCardCode);
+  if(code){
+    input.value=code;
+    identifyCard();
+  }
 }
 
 function updateUI(){
-  document.getElementById('hpText').textContent=hp;
-  document.getElementById('advNowText').textContent=advNow;
-  document.getElementById('hpfill').style.width=(hp/20*100)+'%';
-  document.getElementById('progressfill').style.width=(Math.min(advNow/advTotal,1)*100)+'%';
-  if(hp<=0){battle=null;document.getElementById('result').innerHTML='<h2>💀 不老村生命歸零</h2><p>本局失敗。</p>';}
-  if(advNow>=advTotal&&hp>0&&!battle){document.getElementById('result').innerHTML='<h2>👑 冒險完成</h2><p>已達成本局冒險卡數量，可以進入最終魔王戰。</p>';}
+  const hpEl=document.getElementById('hpText');
+  const advEl=document.getElementById('advNowText');
+  const hpFill=document.getElementById('hpfill');
+  const progFill=document.getElementById('progressfill');
+  if(hpEl) hpEl.textContent=hp;
+  if(advEl) advEl.textContent=advNow;
+  if(hpFill) hpFill.style.width=(hp/20*100)+'%';
+  if(progFill) progFill.style.width=(Math.min(advNow/advTotal,1)*100)+'%';
+  if(hp<=0){
+    battle=null;
+    const r=document.getElementById('result');
+    if(r) r.innerHTML='<h2>💀 不老村生命歸零</h2><p>本局失敗。</p>';
+  }
+  if(advNow>=advTotal&&hp>0&&!battle){
+    const r=document.getElementById('result');
+    if(r) r.innerHTML='<h2>👑 冒險完成</h2><p>已達成本局冒險卡數量，可以進入最終魔王戰。</p>';
+  }
 }
 
 function changeHp(n){hp=Math.max(0,Math.min(20,hp+n));updateUI();}
@@ -40,13 +66,19 @@ function finishAdventure(){if(advNow<advTotal)advNow++;battle=null;updateUI();}
 
 function normalizeCode(raw){
   raw=(raw||'').trim().toUpperCase();
-  try{if(/^https?:\/\//i.test(raw)){const u=new URL(raw);raw=(u.searchParams.get('card')||'').toUpperCase();}}catch(e){}
+  try{
+    if(/^https?:\/\//i.test(raw)){
+      const u=new URL(raw);
+      raw=(u.searchParams.get('card')||'').toUpperCase();
+    }
+  }catch(e){}
   return raw.replace(/\s+/g,'');
 }
 
 function identifyCard(){
   const input=document.getElementById('cardCode');
-  const code=normalizeCode(input.value);input.value=code;
+  const code=normalizeCode(input?input.value:'');
+  if(input) input.value=code;
   if(!/^[KMFEBRL]\d{3}$/.test(code)){renderError('卡號格式錯誤','請輸入例如 K001、M001、E001。');return;}
   const c=cardDB[code];
   if(!c){renderError('查無卡牌',`${code} 尚未加入 cards.json。`);return;}
@@ -57,30 +89,47 @@ function identifyCard(){
   renderCard(code,c);
 }
 
-function renderError(title,msg){document.getElementById('result').innerHTML=`<h2>⚠️ ${title}</h2><p>${msg}</p>`;}
+function renderError(title,msg){
+  const r=document.getElementById('result');
+  if(r) r.innerHTML=`<h2>⚠️ ${title}</h2><p>${msg}</p>`;
+}
 
 function renderCard(code,c){
   const r=document.getElementById('result');
+  if(!r)return;
   if(c.type==='knowledge'){
     battle=null;
     r.innerHTML=`<span class="tag">知識卡</span><span class="tag">${code}</span><h2>📖 ${c.name}</h2><p>${c.question}</p><div class="controls">${c.options.map((o,i)=>`<button onclick="answerKnowledge('${code}','${String.fromCharCode(65+i)}')">${o}</button>`).join('')}</div>`;
-  }else if(c.type==='monster') startMonsterBattle(code,c);
-  else if(c.type==='fate'){
-    battle=null;r.innerHTML=`<span class="tag">命運卡</span><span class="tag">${code}</span><h2>🃏 ${c.name}</h2><p><b>${c.effect}</b></p><button onclick="applyFate('${code}')">執行效果</button>`;
+  }else if(c.type==='monster'){
+    startMonsterBattle(code,c);
+  }else if(c.type==='fate'){
+    battle=null;
+    r.innerHTML=`<span class="tag">命運卡</span><span class="tag">${code}</span><h2>🃏 ${c.name}</h2><p><b>${c.effect}</b></p><button onclick="applyFate('${code}')">執行效果</button>`;
   }else if(c.type==='equipment'){
-    battle=null;r.innerHTML=`<span class="tag">裝備卡</span><span class="tag">${code}</span><h2>🎁 ${c.name}</h2><p>類型：${c.category}</p><p>動作：<b>${c.move}</b></p><p>效果：${c.effect}</p>`;
+    battle=null;
+    r.innerHTML=`<span class="tag">裝備卡</span><span class="tag">${code}</span><h2>🎁 ${c.name}</h2><p>類型：${c.category}</p><p>動作：<b>${c.move}</b></p><p>效果：${c.effect}</p>`;
   }else if(c.type==='boss'){
     if(Number(c.hp)>0) startBossBattle(code,c);
-    else{battle=null;r.innerHTML=`<span class="tag">魔王卡</span><span class="tag">${code}</span><h2>👑 ${c.name}</h2><p>第 ${c.stage} 階段</p><p>${c.effect}</p>`;}
-  }else r.innerHTML=`<span class="tag">${code}</span><h2>${c.name||'卡牌'}</h2>`;
+    else{
+      battle=null;
+      r.innerHTML=`<span class="tag">魔王卡</span><span class="tag">${code}</span><h2>👑 ${c.name}</h2><p>第 ${c.stage} 階段</p><p>${c.effect}</p>`;
+    }
+  }else{
+    r.innerHTML=`<span class="tag">${code}</span><h2>${c.name||'卡牌'}</h2>`;
+  }
 }
 
 function answerKnowledge(code,choice){
-  const c=cardDB[code],ok=choice===c.answer;changeHp(ok?2:-2);
+  const c=cardDB[code],ok=choice===c.answer;
+  changeHp(ok?2:-2);
   document.getElementById('result').innerHTML=`<h2>${ok?'✅ 回答正確':'❌ 回答錯誤'}</h2><p>${ok?'':'正確答案：<b>'+c.answer+'</b><br>'}${c.teach}</p><p>${ok?'❤️ +2 HP':'💔 -2 HP'}</p><button onclick="finishAdventure()">完成此冒險</button>`;
 }
 
-function applyFate(code){const c=cardDB[code];changeHp(c.hpChange||0);document.getElementById('result').innerHTML+=`<p><b>已結算：${c.effect}</b></p><button onclick="finishAdventure()">完成此冒險</button>`;}
+function applyFate(code){
+  const c=cardDB[code];
+  changeHp(c.hpChange||0);
+  document.getElementById('result').innerHTML+=`<p><b>已結算：${c.effect}</b></p><button onclick="finishAdventure()">完成此冒險</button>`;
+}
 
 function startMonsterBattle(code,c){
   const monsterHp=Math.min(10,Math.max(5,Number(c.hp)||5));
@@ -109,11 +158,9 @@ function renderBattle(){
     <div class="controls"><button onclick="battleAttack(1,'👊 勇者之拳')">👊 沒有裝備：勇者之拳｜傷害 1</button></div>
     <div style="margin-top:14px;padding:14px;border:2px dashed #c9b98f;border-radius:12px">
       <b>📷 有裝備：掃描裝備卡</b>
-      <p class="note">先完成卡片上的身體動作，再掃 QR／輸入 E001～E005。程式會自動判定攻擊、防禦、補血與弱點。</p>
+      <p class="note">完成卡片動作後掃 QR，程式會自動判定效果與弱點。</p>
       <div class="grid"><input id="battleScanCode" placeholder="例如 E001"><button onclick="submitBattleScan()">判定裝備</button></div>
-      <div class="controls"><button onclick="startBattleScanner()">📷 開啟相機掃 QR</button><button onclick="stopBattleScanner()">停止相機</button></div>
-      <div id="battleVideoWrap" style="display:none;margin-top:10px"><video id="battleVideo" playsinline style="width:100%;max-height:320px;background:#111;border-radius:10px"></video></div>
-      <div id="scanStatus" class="note"></div>
+      <div class="controls"><button onclick="startScanner('battle')">📷 掃描裝備卡</button></div>
     </div>${logs}`;
 }
 
@@ -179,9 +226,11 @@ function advanceBattleTurn(){
   if(!battle)return;
   battle.playerIndex++;
   if(battle.playerIndex>=playerCount){
-    battle.playerIndex=0;enemyCounterAttack();
+    battle.playerIndex=0;
+    enemyCounterAttack();
     if(!battle||hp<=0)return;
-    battle.round++;battle.shield=0;
+    battle.round++;
+    battle.shield=0;
   }
   renderBattle();
 }
@@ -189,52 +238,139 @@ function advanceBattleTurn(){
 function enemyCounterAttack(){
   if(!battle)return;
   const damage=Math.max(0,battle.atk-battle.shield),enemyName=battle.name;
-  if(damage>0){const before=hp;hp=Math.max(0,hp-damage);battle.log.push(`${enemyName} 在全體玩家行動結束後反擊：團隊生命 ${before} → ${hp}`);updateUI();if(hp>0)alert(`${enemyName} 反擊！不老村生命 -${damage}`);}
-  else{battle.log.push(`${enemyName} 的反擊被完全擋下`);alert(`${enemyName} 的反擊被防禦擋下！`);}
+  if(damage>0){
+    const before=hp;hp=Math.max(0,hp-damage);
+    battle.log.push(`${enemyName} 在全體玩家行動結束後反擊：團隊生命 ${before} → ${hp}`);
+    updateUI();
+    if(hp>0) alert(`${enemyName} 反擊！不老村生命 -${damage}`);
+  }else{
+    battle.log.push(`${enemyName} 的反擊被完全擋下`);
+    alert(`${enemyName} 的反擊被防禦擋下！`);
+  }
 }
 
 function battleDefeated(){
   if(!battle)return;
-  stopBattleScanner();
-  const name=battle.name,kind=battle.kind;battle=null;
-  if(kind==='boss'){document.getElementById('result').innerHTML=`<h2>🏆 ${name} 已擊敗！</h2><p>魔王 20 HP 已歸零，團隊獲勝！</p>`;return;}
+  stopScanner();
+  const name=battle.name,kind=battle.kind;
+  battle=null;
+  if(kind==='boss'){
+    document.getElementById('result').innerHTML=`<h2>🏆 ${name} 已擊敗！</h2><p>魔王 20 HP 已歸零，團隊獲勝！</p>`;
+    return;
+  }
   const reward=Math.random()<0.5?'fate':'equipment';
   document.getElementById('result').innerHTML=`<h2>💀 ${name} 已擊敗！</h2><p>怪獸 HP 已歸零，因此本輪不會反擊。</p><hr><h2>🎁 怪獸獎勵</h2>${reward==='fate'?'<p style="font-size:26px"><b>🃏 抽 1 張命運卡</b></p>':'<p style="font-size:26px"><b>🎁 抽 1 張裝備卡</b></p>'}<p>請從桌上的實體牌堆抽取。</p><button onclick="finishAdventure()">完成此冒險</button>`;
 }
 
-async function startBattleScanner(){
-  const status=document.getElementById('scanStatus');
-  if(!battle)return;
-  if(!('BarcodeDetector' in window)){if(status)status.textContent='此瀏覽器不支援內建 QR 掃描，請直接輸入卡號 E001～E005。';return;}
+async function startScanner(mode='game'){
+  scannerMode=mode;
+  scannerBusy=false;
+  const modal=document.getElementById('scannerModal');
+  const status=document.getElementById('scannerStatus');
+  const video=document.getElementById('scannerVideo');
+  if(!modal||!video)return;
+
+  if(typeof jsQR!=='function'){
+    alert('QR 掃描元件載入失敗，請重新整理頁面後再試。');
+    return;
+  }
+
+  modal.classList.remove('hidden');
+  status.textContent='正在請求相機權限…';
+
   try{
-    const formats=await BarcodeDetector.getSupportedFormats();
-    if(!formats.includes('qr_code')){if(status)status.textContent='此裝置不支援 QR Code 辨識，請改用卡號輸入。';return;}
-    const detector=new BarcodeDetector({formats:['qr_code']});
-    mediaStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
-    const video=document.getElementById('battleVideo');
-    video.srcObject=mediaStream;await video.play();
-    document.getElementById('battleVideoWrap').style.display='block';
-    if(status)status.textContent='相機已開啟，請將裝備卡 QR Code 放入畫面。';
-    scanTimer=setInterval(async()=>{
-      try{
-        const found=await detector.detect(video);
-        if(found.length){
-          const code=normalizeCode(found[0].rawValue);
-          const c=cardDB[code];
-          if(c&&c.type==='equipment'){
-            stopBattleScanner();
-            useEquipmentInBattle(code,c);
-          }
-        }
-      }catch(e){}
-    },450);
-  }catch(e){if(status)status.textContent='無法開啟相機，請確認權限，或改用卡號輸入。';}
+    scannerStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},
+      audio:false
+    });
+    video.srcObject=scannerStream;
+    await video.play();
+    status.textContent='請將 QR Code 放入白色框內';
+    scanFrame();
+  }catch(err){
+    console.error(err);
+    status.textContent='無法開啟相機。請確認已允許相機權限，並使用 HTTPS 網址。';
+  }
 }
 
-function stopBattleScanner(){
-  if(scanTimer){clearInterval(scanTimer);scanTimer=null;}
-  if(mediaStream){mediaStream.getTracks().forEach(t=>t.stop());mediaStream=null;}
-  const wrap=document.getElementById('battleVideoWrap');if(wrap)wrap.style.display='none';
+function scanFrame(){
+  const video=document.getElementById('scannerVideo');
+  const canvas=document.getElementById('scannerCanvas');
+  const status=document.getElementById('scannerStatus');
+  if(!video||!canvas||!scannerStream)return;
+
+  if(video.readyState===video.HAVE_ENOUGH_DATA && !scannerBusy){
+    const w=video.videoWidth;
+    const h=video.videoHeight;
+    if(w&&h){
+      canvas.width=w;
+      canvas.height=h;
+      const ctx=canvas.getContext('2d',{willReadFrequently:true});
+      ctx.drawImage(video,0,0,w,h);
+      const img=ctx.getImageData(0,0,w,h);
+      const qr=jsQR(img.data,w,h,{inversionAttempts:'attemptBoth'});
+      if(qr&&qr.data){
+        scannerBusy=true;
+        status.textContent='已讀取 QR Code';
+        handleScannedValue(qr.data);
+        return;
+      }
+    }
+  }
+  scannerRAF=requestAnimationFrame(scanFrame);
 }
 
-document.addEventListener('DOMContentLoaded',()=>{loadDatabase().catch(e=>renderError('資料庫載入失敗',e.message));});
+function handleScannedValue(raw){
+  const code=normalizeCode(raw);
+  if(!/^[KMFEBRL]\d{3}$/.test(code)){
+    const status=document.getElementById('scannerStatus');
+    status.textContent='這不是有效的不老村卡牌 QR，請再掃一次。';
+    scannerBusy=false;
+    scannerRAF=requestAnimationFrame(scanFrame);
+    return;
+  }
+
+  stopScanner();
+
+  if(scannerMode==='setup'){
+    pendingCardCode=code;
+    const input=document.getElementById('cardCode');
+    if(input) input.value=code;
+    const s=document.getElementById('setupScanStatus');
+    if(s) s.textContent=`✅ 已掃描：${code} ${cardDB[code]?.name||''}`;
+    return;
+  }
+
+  if(scannerMode==='battle'){
+    const c=cardDB[code];
+    if(!battle){alert('目前沒有進行中的戰鬥。');return;}
+    if(!c||c.type!=='equipment'){
+      alert(`戰鬥中請掃裝備卡，目前掃到 ${code}。`);
+      return;
+    }
+    useEquipmentInBattle(code,c);
+    return;
+  }
+
+  const input=document.getElementById('cardCode');
+  if(input) input.value=code;
+  identifyCard();
+}
+
+function stopScanner(){
+  if(scannerRAF){cancelAnimationFrame(scannerRAF);scannerRAF=null;}
+  if(scannerStream){scannerStream.getTracks().forEach(t=>t.stop());scannerStream=null;}
+  const video=document.getElementById('scannerVideo');
+  if(video){video.pause();video.srcObject=null;}
+  const modal=document.getElementById('scannerModal');
+  if(modal) modal.classList.add('hidden');
+  scannerBusy=false;
+}
+
+// 舊按鈕相容：全部導向新版掃描器
+function startBattleScanner(){startScanner('battle');}
+function stopBattleScanner(){stopScanner();}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  loadDatabase().catch(e=>renderError('資料庫載入失敗',e.message));
+});
