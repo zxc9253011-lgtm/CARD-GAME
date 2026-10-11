@@ -3,29 +3,47 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>不老村守護戰｜怪獸擊敗獎勵</title>
-<style>
-*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#f3efe6;font-family:"Microsoft JhengHei","PingFang TC",Arial,sans-serif;color:#2d2a26}.wrap{width:min(620px,100%);text-align:center}h1{margin:0 0 8px;color:#315541;font-size:30px}.sub{color:#666;margin-bottom:18px}.card{background:#fffdf8;border:4px solid #c7b99d;border-radius:26px;min-height:420px;padding:30px 20px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 14px 34px rgba(0,0,0,.12)}.icon{font-size:92px}.type{font-size:20px;font-weight:900;margin-top:10px}.result{font-size:38px;font-weight:900;margin:18px 0;line-height:1.3}.instruction{font-size:21px;line-height:1.6;padding:16px;border-radius:16px}.fate .type,.fate .result{color:#8b6517}.fate .instruction{background:#fff3d1;border:2px solid #dbc58a}.equipment .type,.equipment .result{color:#68447d}.equipment .instruction{background:#f2e8f8;border:2px solid #bea6cd}.note{font-size:13px;color:#777;margin-top:12px}.pop{animation:pop .28s ease}@keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
-</style>
+<title>不老村守衛戰｜遊戲輔助系統</title>
+<link rel="stylesheet" href="./style.css">
 </head>
 <body>
-<div class="wrap">
-  <h1>🏆 怪獸擊敗獎勵</h1>
-  <div class="sub">擊敗怪獸後掃描 QR Code，取得本次獎勵</div>
-  <div class="card" id="rewardCard"><div id="content"></div></div>
-  <div class="note">每擊敗一隻怪獸只抽取一次。</div>
+<div class="app">
+<header>
+  <h1>🏡 不老村守衛戰</h1>
+  <div class="sub">純卡牌版｜卡牌資料庫與遊戲輔助系統</div>
+</header>
+
+<section class="panel" id="setup">
+  <h2>🎮 開局設定</h2>
+  <div class="grid">
+    <div><label>玩家人數</label><select id="players"><option>3</option><option selected>4</option><option>5</option><option>6</option></select></div>
+    <div><label>本局冒險卡數量（自訂）</label><input id="adventureTotal" type="number" min="1" max="99" value="12"></div>
+    <div><label>是否加入假面好人</label><select id="traitor"><option value="yes" selected>是</option><option value="no">否</option></select></div>
+    <div><label>初始生命</label><input value="20" disabled></div>
+  </div>
+  <div class="controls"><button onclick="startGame()">開始冒險</button></div>
+</section>
+
+<section class="panel hidden" id="game">
+  <h2>📊 遊戲中控</h2>
+  <div class="stats">
+    <div class="stat">❤️ 生命<div class="big"><span id="hpText">20</span>/20</div></div>
+    <div class="stat">🃏 冒險進度<div class="big"><span id="advNowText">0</span>/<span id="advTotalText">12</span></div></div>
+    <div class="stat">🔎 卡牌資料庫<div class="big">QR</div></div>
+  </div>
+  <div class="hpbar"><div class="hpfill" id="hpfill"></div></div>
+  <div class="controls"><button onclick="changeHp(2)">+2 HP</button><button onclick="changeHp(-2)">-2 HP</button><button onclick="changeHp(4)">+4 HP</button><button onclick="changeHp(-4)">-4 HP</button></div>
+  <div style="margin-top:14px"><b>冒險進度</b><div class="progressbar"><div class="progressfill" id="progressfill"></div></div></div>
+
+  <h2 style="margin-top:22px">📷 掃描／輸入卡號</h2>
+  <p class="note">正式 QR 建議使用網址格式：<code>https://zxc9253011-lgtm.github.io/CARD-GAME/?card=M001</code></p>
+  <div class="grid">
+    <input id="cardCode" placeholder="輸入 K001、M001、F001、E001、B001">
+    <button onclick="identifyCard()">讀取卡牌</button>
+  </div>
+  <div class="result" id="result"><h2>等待卡牌</h2><p>掃描 QR Code 或手動輸入卡號。</p></div>
+</section>
 </div>
-<script>
-function drawReward(){
-  const equipment=Math.random()<0.5;
-  const card=document.getElementById('rewardCard');
-  const content=document.getElementById('content');
-  card.className='card '+(equipment?'equipment':'fate');
-  content.classList.remove('pop');void content.offsetWidth;content.classList.add('pop');
-  if(equipment){content.innerHTML='<div class="icon">🎁</div><div class="type">裝備獎勵</div><div class="result">抽 1 張裝備卡</div><div class="instruction">請從桌上的<br><strong>「裝備牌堆」</strong><br>隨機抽取 1 張裝備卡。</div>'}
-  else{content.innerHTML='<div class="icon">🃏</div><div class="type">命運獎勵</div><div class="result">抽 1 張命運卡</div><div class="instruction">請從桌上的<br><strong>「命運牌堆」</strong><br>隨機抽取 1 張命運卡並立即執行。</div>'}
-}
-drawReward();
-</script>
+<script src="./app.js"></script>
 </body>
 </html>
