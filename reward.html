@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>不老村守護戰｜怪獸擊敗獎勵</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#f3efe6;font-family:"Microsoft JhengHei","PingFang TC",Arial,sans-serif;color:#2d2a26}.wrap{width:min(620px,100%);text-align:center}h1{margin:0 0 8px;color:#315541;font-size:30px}.sub{color:#666;margin-bottom:18px}.card{background:#fffdf8;border:4px solid #c7b99d;border-radius:26px;min-height:420px;padding:30px 20px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 14px 34px rgba(0,0,0,.12)}.icon{font-size:92px}.type{font-size:20px;font-weight:900;margin-top:10px}.result{font-size:38px;font-weight:900;margin:18px 0;line-height:1.3}.instruction{font-size:21px;line-height:1.6;padding:16px;border-radius:16px}.fate .type,.fate .result{color:#8b6517}.fate .instruction{background:#fff3d1;border:2px solid #dbc58a}.equipment .type,.equipment .result{color:#68447d}.equipment .instruction{background:#f2e8f8;border:2px solid #bea6cd}.note{font-size:13px;color:#777;margin-top:12px}.pop{animation:pop .28s ease}@keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🏆 怪獸擊敗獎勵</h1>
+  <div class="sub">擊敗怪獸後掃描 QR Code，取得本次獎勵</div>
+  <div class="card" id="rewardCard"><div id="content"></div></div>
+  <div class="note">每擊敗一隻怪獸只抽取一次。</div>
+</div>
+<script>
+function drawReward(){
+  const equipment=Math.random()<0.5;
+  const card=document.getElementById('rewardCard');
+  const content=document.getElementById('content');
+  card.className='card '+(equipment?'equipment':'fate');
+  content.classList.remove('pop');void content.offsetWidth;content.classList.add('pop');
+  if(equipment){content.innerHTML='<div class="icon">🎁</div><div class="type">裝備獎勵</div><div class="result">抽 1 張裝備卡</div><div class="instruction">請從桌上的<br><strong>「裝備牌堆」</strong><br>隨機抽取 1 張裝備卡。</div>'}
+  else{content.innerHTML='<div class="icon">🃏</div><div class="type">命運獎勵</div><div class="result">抽 1 張命運卡</div><div class="instruction">請從桌上的<br><strong>「命運牌堆」</strong><br>隨機抽取 1 張命運卡並立即執行。</div>'}
+}
+drawReward();
+</script>
+</body>
+</html>
