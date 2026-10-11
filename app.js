@@ -1,4 +1,6 @@
-let cardDB={};let hp=20,advNow=0,advTotal=12;
+let cardDB={};
+let hp=20,advNow=0,advTotal=12,playerCount=4;
+let battle=null;
 
 async function loadDatabase(){
   const res=await fetch('./cards.json',{cache:'no-store'});
@@ -12,7 +14,9 @@ async function loadDatabase(){
 function startGame(){
   const n=parseInt(document.getElementById('adventureTotal').value,10);
   if(!Number.isFinite(n)||n<1){alert('冒險卡數量至少 1 張');return;}
-  advTotal=n;hp=20;advNow=0;
+  advTotal=n;
+  playerCount=parseInt(document.getElementById('players').value,10)||4;
+  hp=20;advNow=0;battle=null;
   document.getElementById('setup').classList.add('hidden');
   document.getElementById('game').classList.remove('hidden');
   document.getElementById('advTotalText').textContent=advTotal;
@@ -25,11 +29,11 @@ function updateUI(){
   document.getElementById('hpfill').style.width=(hp/20*100)+'%';
   document.getElementById('progressfill').style.width=(Math.min(advNow/advTotal,1)*100)+'%';
   if(hp<=0) document.getElementById('result').innerHTML='<h2>💀 不老村生命歸零</h2><p>本局失敗。</p>';
-  if(advNow>=advTotal&&hp>0) document.getElementById('result').innerHTML='<h2>👑 冒險完成</h2><p>已達成本局冒險卡數量，可以進入最終魔王戰。</p>';
+  if(advNow>=advTotal&&hp>0&&!battle) document.getElementById('result').innerHTML='<h2>👑 冒險完成</h2><p>已達成本局冒險卡數量，可以進入最終魔王戰。</p>';
 }
 
 function changeHp(n){hp=Math.max(0,Math.min(20,hp+n));updateUI();}
-function finishAdventure(){if(advNow<advTotal)advNow++;updateUI();}
+function finishAdventure(){if(advNow<advTotal)advNow++;battle=null;updateUI();}
 
 function normalizeCode(raw){
   raw=(raw||'').trim().toUpperCase();
@@ -51,14 +55,18 @@ function renderError(title,msg){document.getElementById('result').innerHTML=`<h2
 function renderCard(code,c){
   const r=document.getElementById('result');
   if(c.type==='knowledge'){
+    battle=null;
     r.innerHTML=`<span class="tag">知識卡</span><span class="tag">${code}</span><h2>📖 ${c.name}</h2><p>${c.question}</p><div class="controls">${c.options.map((o,i)=>`<button onclick="answerKnowledge('${code}','${String.fromCharCode(65+i)}')">${o}</button>`).join('')}</div>`;
   }else if(c.type==='monster'){
-    r.innerHTML=`<span class="tag">怪獸卡</span><span class="tag">${code}</span><h2>⚔️ ${c.name}</h2><p>❤️ HP：<b>${c.hp}</b></p><p>⚔️ ATK：<b>${c.atk}</b></p><p>🎯 弱點：<b>${c.weak}</b></p>`;
+    startMonsterBattle(code,c);
   }else if(c.type==='fate'){
+    battle=null;
     r.innerHTML=`<span class="tag">命運卡</span><span class="tag">${code}</span><h2>🃏 ${c.name}</h2><p><b>${c.effect}</b></p><button onclick="applyFate('${code}')">執行效果</button>`;
   }else if(c.type==='equipment'){
+    battle=null;
     r.innerHTML=`<span class="tag">裝備卡</span><span class="tag">${code}</span><h2>🎁 ${c.name}</h2><p>類型：${c.category}</p><p>動作：<b>${c.move}</b></p><p>效果：${c.effect}</p>`;
   }else if(c.type==='boss'){
+    battle=null;
     r.innerHTML=`<span class="tag">魔王卡</span><span class="tag">${code}</span><h2>👑 ${c.name}</h2><p>第 ${c.stage} 階段</p><p>${c.effect}</p>`;
   }else{r.innerHTML=`<span class="tag">${code}</span><h2>${c.name||'卡牌'}</h2>`;}
 }
@@ -69,6 +77,89 @@ function answerKnowledge(code,choice){
   document.getElementById('result').innerHTML=`<h2>${ok?'✅ 回答正確':'❌ 回答錯誤'}</h2><p>${ok?'':'正確答案：<b>'+c.answer+'</b><br>'}${c.teach}</p><p>${ok?'❤️ +2 HP':'💔 -2 HP'}</p><button onclick="finishAdventure()">完成此冒險</button>`;
 }
 
-function applyFate(code){const c=cardDB[code];changeHp(c.hpChange||0);document.getElementById('result').innerHTML+=`<p><b>已結算：${c.effect}</b></p><button onclick="finishAdventure()">完成此冒險</button>`;}
+function applyFate(code){
+  const c=cardDB[code];changeHp(c.hpChange||0);
+  document.getElementById('result').innerHTML+=`<p><b>已結算：${c.effect}</b></p><button onclick="finishAdventure()">完成此冒險</button>`;
+}
+
+function startMonsterBattle(code,c){
+  battle={code,name:c.name,maxHp:c.hp,hp:c.hp,atk:c.atk,weak:c.weak,special:c.special||'',playerIndex:0,shield:0,round:1};
+  renderBattle();
+}
+
+function renderBattle(){
+  if(!battle)return;
+  const r=document.getElementById('result');
+  const current=battle.playerIndex+1;
+  r.innerHTML=`
+    <span class="tag">怪獸卡</span><span class="tag">${battle.code}</span>
+    <h2>⚔️ ${battle.name}</h2>
+    <p>❤️ 怪獸 HP：<b>${battle.hp} / ${battle.maxHp}</b></p>
+    <p>⚔️ ATK：<b>${battle.atk}</b>　🎯 弱點：<b>${battle.weak}</b></p>
+    <p>${battle.special}</p>
+    <hr>
+    <h3>第 ${battle.round} 輪｜玩家 ${current} 行動</h3>
+    <p class="note">玩家完成實體卡指定動作後，再按對應效果。</p>
+    <div class="controls">
+      <button onclick="battleAttack(1)">👊 勇者之拳｜-1</button>
+      <button onclick="battleAttack(2)">⚔️ 裝備攻擊｜-2</button>
+      <button onclick="battleAttack(3)">🎯 弱點攻擊｜-3</button>
+      <button onclick="battleShield()">🛡️ 平衡之盾｜反擊 -2</button>
+      <button onclick="battleHeal()">👟 活力之靴｜生命 +2</button>
+    </div>`;
+}
+
+function battleAttack(dmg){
+  if(!battle||hp<=0)return;
+  battle.hp=Math.max(0,battle.hp-dmg);
+  if(battle.hp<=0){monsterDefeated();return;}
+  advanceBattleTurn();
+}
+
+function battleShield(){
+  if(!battle)return;
+  battle.shield+=2;
+  advanceBattleTurn();
+}
+
+function battleHeal(){
+  if(!battle)return;
+  changeHp(2);
+  advanceBattleTurn();
+}
+
+function advanceBattleTurn(){
+  if(!battle)return;
+  battle.playerIndex++;
+  if(battle.playerIndex>=playerCount){
+    battle.playerIndex=0;
+    monsterCounterAttack();
+    if(!battle||hp<=0)return;
+    battle.round++;
+    battle.shield=0;
+  }
+  renderBattle();
+}
+
+function monsterCounterAttack(){
+  if(!battle)return;
+  const damage=Math.max(0,battle.atk-battle.shield);
+  if(damage>0)changeHp(-damage);
+  if(hp<=0)return;
+  alert(damage>0?`${battle.name} 反擊！不老村生命 -${damage}`:`${battle.name} 的攻擊被防禦擋下！`);
+}
+
+function monsterDefeated(){
+  const name=battle.name;
+  const reward=Math.random()<0.5?'fate':'equipment';
+  document.getElementById('result').innerHTML=`
+    <h2>💀 ${name} 已擊敗！</h2>
+    <p>怪獸無法反擊。</p>
+    <hr>
+    <h2>🎁 怪獸獎勵</h2>
+    ${reward==='fate'?'<p style="font-size:26px"><b>🃏 抽 1 張命運卡</b></p>':'<p style="font-size:26px"><b>🎁 抽 1 張裝備卡</b></p>'}
+    <p>請從桌上的實體牌堆抽取。</p>
+    <button onclick="finishAdventure()">完成此冒險</button>`;
+}
 
 document.addEventListener('DOMContentLoaded',()=>{loadDatabase().catch(e=>renderError('資料庫載入失敗',e.message));});
