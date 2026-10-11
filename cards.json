@@ -1,11 +1,11 @@
 {
-  "version": 3,
+  "version": 4,
   "cards": {
     "K001": {"type":"knowledge","name":"用藥安全","question":"服用一般藥物時，哪一種飲品較適合作為搭配？","options":["A. 白開水","B. 葡萄柚汁","C. 茶"],"answer":"A","teach":"一般服藥以白開水較合適；部分飲品可能影響藥物吸收或代謝。"},
     "K002": {"type":"knowledge","name":"肌少症防禦","question":"哪一種做法較有助於維持肌肉功能？","options":["A. 規律阻力訓練＋足夠蛋白質","B. 盡量少動","C. 只做伸展"],"answer":"A","teach":"規律阻力訓練搭配足夠蛋白質，有助於維持肌肉量與功能。"},
 
     "M001": {"type":"monster","name":"骨質疏鬆龍","hp":6,"atk":2,"weak":"力量","special":"力量型裝備命中弱點時額外 +1 傷害。"},
-    "M002": {"type":"monster","name":"跌倒幽靈","hp":5,"atk":2,"weak":"平衡","special":"若本輪未使用平衡防禦，可依主持規則提高威脅。"},
+    "M002": {"type":"monster","name":"跌倒幽靈","hp":5,"atk":2,"weak":"平衡","special":"平衡型裝備可有效降低反擊傷害。"},
     "M003": {"type":"monster","name":"肌少症巨人","hp":7,"atk":2,"weak":"力量","special":"需要靠穩定的力量輸出擊退。"},
     "M004": {"type":"monster","name":"久坐史萊姆","hp":5,"atk":1,"weak":"心肺","special":"鼓勵以踏步、走動類裝備對抗。"},
     "M005": {"type":"monster","name":"僵硬鎧甲蟹","hp":6,"atk":2,"weak":"活動度","special":"活動度型裝備命中弱點時額外 +1 傷害。"},
@@ -18,8 +18,11 @@
     "F001": {"type":"fate","name":"社區共餐","effect":"不老村生命 +2","hpChange":2},
     "F002": {"type":"fate","name":"熬夜追劇","effect":"不老村生命 -2","hpChange":-2},
 
-    "E001": {"type":"equipment","name":"深蹲戰槌","category":"力量","move":"椅子坐站 5 次","effect":"攻擊力 2；力量弱點額外 +1"},
-    "E002": {"type":"equipment","name":"平衡之盾","category":"平衡","move":"扶椅單腳站左右各 5 秒","effect":"下一次怪獸攻擊 -2"},
+    "E001": {"type":"equipment","name":"深蹲戰槌","category":"力量","move":"椅子坐站 5 次","effect":"攻擊力 2；若怪獸弱點為力量，額外 +1 傷害。","combat":{"action":"attack","value":2}},
+    "E002": {"type":"equipment","name":"平衡之盾","category":"平衡","move":"扶椅背單腳站立左右各 5 秒","effect":"本輪下一次怪獸反擊傷害 -2。","combat":{"action":"shield","value":2}},
+    "E003": {"type":"equipment","name":"活力之靴","category":"心肺","move":"原地或坐姿踏步 15 下","effect":"恢復不老村生命 +2；若敵人弱點為心肺，同時造成 1 點弱點傷害。","combat":{"action":"heal","value":2,"weakDamage":1}},
+    "E004": {"type":"equipment","name":"開胸之弓","category":"活動度","move":"開胸伸展 10 秒 × 2","effect":"造成 2 點傷害；若怪獸弱點為活動度，額外 +1 傷害。","combat":{"action":"attack","value":2}},
+    "E005": {"type":"equipment","name":"智慧法杖","category":"認知","move":"說出星期幾＋目前場所","effect":"一般效果為下一題知識題可重新回答一次；戰鬥中遇到認知弱點敵人時造成 3 點傷害，其他敵人造成 1 點傷害。","combat":{"action":"cognitive","value":1,"weakValue":3}},
 
     "B001": {"type":"boss","name":"衰老魔王・第一關","stage":1,"effect":"健康知識考驗"},
     "B002": {"type":"boss","name":"衰老魔王・第二關","stage":2,"hp":20,"atk":2,"effect":"身體戰鬥；魔王固定 20 HP。"},
