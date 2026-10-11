@@ -2,9 +2,7 @@ let cardDB={};
 let hp=20,advNow=0,advTotal=12,playerCount=4;
 let battle=null;
 let pendingCardCode='';
-
 let scannerStream=null;
-let scannerRAF=null;
 let scannerMode='game';
 let scannerBusy=false;
 
@@ -35,10 +33,7 @@ function startGame(){
   updateUI();
   const input=document.getElementById('cardCode');
   const code=normalizeCode((input&&input.value)||pendingCardCode);
-  if(code){
-    input.value=code;
-    identifyCard();
-  }
+  if(code){input.value=code;identifyCard();}
 }
 
 function updateUI(){
@@ -82,10 +77,7 @@ function identifyCard(){
   if(!/^[KMFEBRL]\d{3}$/.test(code)){renderError('卡號格式錯誤','請輸入例如 K001、M001、E001。');return;}
   const c=cardDB[code];
   if(!c){renderError('查無卡牌',`${code} 尚未加入 cards.json。`);return;}
-  if(battle && c.type==='equipment'){
-    useEquipmentInBattle(code,c);
-    return;
-  }
+  if(battle && c.type==='equipment'){useEquipmentInBattle(code,c);return;}
   renderCard(code,c);
 }
 
@@ -157,10 +149,10 @@ function renderBattle(){
     <p class="note">每位玩家各行動 1 次；全部玩家完成後，敵人才反擊 1 次。</p>
     <div class="controls"><button onclick="battleAttack(1,'👊 勇者之拳')">👊 沒有裝備：勇者之拳｜傷害 1</button></div>
     <div style="margin-top:14px;padding:14px;border:2px dashed #c9b98f;border-radius:12px">
-      <b>📷 有裝備：掃描裝備卡</b>
-      <p class="note">完成卡片動作後掃 QR，程式會自動判定效果與弱點。</p>
+      <b>📷 有裝備：辨識裝備卡文字</b>
+      <p class="note">完成卡片動作後，把 E001～E005 對準鏡頭；系統會辨識卡號並自動判定效果。</p>
       <div class="grid"><input id="battleScanCode" placeholder="例如 E001"><button onclick="submitBattleScan()">判定裝備</button></div>
-      <div class="controls"><button onclick="startScanner('battle')">📷 掃描裝備卡</button></div>
+      <div class="controls"><button onclick="startScanner('battle')">📷 辨識裝備卡號</button></div>
     </div>${logs}`;
 }
 
@@ -170,7 +162,7 @@ function submitBattleScan(){
   const code=normalizeCode(el?el.value:'');
   const c=cardDB[code];
   if(!c){alert('找不到這張卡，請確認卡號。');return;}
-  if(c.type!=='equipment'){alert('戰鬥中請掃裝備卡 E001～E005。');return;}
+  if(c.type!=='equipment'){alert('戰鬥中請使用裝備卡 E001～E005。');return;}
   useEquipmentInBattle(code,c);
 }
 
@@ -180,7 +172,7 @@ function useEquipmentInBattle(code,c){
   const category=c.category||'';
   const weakHit=battle.kind==='monster' && category===battle.weak;
   const player=battle.playerIndex+1;
-  let message=`玩家 ${player}/${playerCount} 掃描 ${code} ${c.name}`;
+  let message=`玩家 ${player}/${playerCount} 使用 ${code} ${c.name}`;
 
   if(action==='attack'){
     const dmg=(Number(c.combat.value)||0)+(weakHit?1:0);
@@ -264,112 +256,136 @@ function battleDefeated(){
 
 async function startScanner(mode='game'){
   scannerMode=mode;
-  scannerBusy=false;
   const modal=document.getElementById('scannerModal');
-  const status=document.getElementById('scannerStatus');
   const video=document.getElementById('scannerVideo');
-  if(!modal||!video)return;
-
-  if(typeof jsQR!=='function'){
-    alert('QR 掃描元件載入失敗，請重新整理頁面後再試。');
+  const status=document.getElementById('scannerStatus');
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    alert('此瀏覽器無法使用相機，請改用 Chrome、Edge 或 Safari，並確認網站使用 HTTPS。');
     return;
   }
-
-  modal.classList.remove('hidden');
-  status.textContent='正在請求相機權限…';
-
   try{
-    scannerStream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},
-      audio:false
-    });
+    if(scannerStream) stopScanner();
+    modal.classList.remove('hidden');
+    status.textContent='正在開啟相機…';
+    scannerStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
     video.srcObject=scannerStream;
     await video.play();
-    status.textContent='請將 QR Code 放入白色框內';
-    scanFrame();
-  }catch(err){
-    console.error(err);
-    status.textContent='無法開啟相機。請確認已允許相機權限，並使用 HTTPS 網址。';
+    status.textContent='相機已開啟。請把卡號放在白框內，再按「辨識卡號文字」。';
+  }catch(e){
+    status.textContent='無法開啟相機。請確認已允許此網站使用相機。';
   }
-}
-
-function scanFrame(){
-  const video=document.getElementById('scannerVideo');
-  const canvas=document.getElementById('scannerCanvas');
-  const status=document.getElementById('scannerStatus');
-  if(!video||!canvas||!scannerStream)return;
-
-  if(video.readyState===video.HAVE_ENOUGH_DATA && !scannerBusy){
-    const w=video.videoWidth;
-    const h=video.videoHeight;
-    if(w&&h){
-      canvas.width=w;
-      canvas.height=h;
-      const ctx=canvas.getContext('2d',{willReadFrequently:true});
-      ctx.drawImage(video,0,0,w,h);
-      const img=ctx.getImageData(0,0,w,h);
-      const qr=jsQR(img.data,w,h,{inversionAttempts:'attemptBoth'});
-      if(qr&&qr.data){
-        scannerBusy=true;
-        status.textContent='已讀取 QR Code';
-        handleScannedValue(qr.data);
-        return;
-      }
-    }
-  }
-  scannerRAF=requestAnimationFrame(scanFrame);
-}
-
-function handleScannedValue(raw){
-  const code=normalizeCode(raw);
-  if(!/^[KMFEBRL]\d{3}$/.test(code)){
-    const status=document.getElementById('scannerStatus');
-    status.textContent='這不是有效的不老村卡牌 QR，請再掃一次。';
-    scannerBusy=false;
-    scannerRAF=requestAnimationFrame(scanFrame);
-    return;
-  }
-
-  stopScanner();
-
-  if(scannerMode==='setup'){
-    pendingCardCode=code;
-    const input=document.getElementById('cardCode');
-    if(input) input.value=code;
-    const s=document.getElementById('setupScanStatus');
-    if(s) s.textContent=`✅ 已掃描：${code} ${cardDB[code]?.name||''}`;
-    return;
-  }
-
-  if(scannerMode==='battle'){
-    const c=cardDB[code];
-    if(!battle){alert('目前沒有進行中的戰鬥。');return;}
-    if(!c||c.type!=='equipment'){
-      alert(`戰鬥中請掃裝備卡，目前掃到 ${code}。`);
-      return;
-    }
-    useEquipmentInBattle(code,c);
-    return;
-  }
-
-  const input=document.getElementById('cardCode');
-  if(input) input.value=code;
-  identifyCard();
 }
 
 function stopScanner(){
-  if(scannerRAF){cancelAnimationFrame(scannerRAF);scannerRAF=null;}
   if(scannerStream){scannerStream.getTracks().forEach(t=>t.stop());scannerStream=null;}
   const video=document.getElementById('scannerVideo');
-  if(video){video.pause();video.srcObject=null;}
+  if(video) video.srcObject=null;
   const modal=document.getElementById('scannerModal');
   if(modal) modal.classList.add('hidden');
   scannerBusy=false;
 }
 
-// 舊按鈕相容：全部導向新版掃描器
-function startBattleScanner(){startScanner('battle');}
-function stopBattleScanner(){stopScanner();}
+function extractCardCodeFromText(text){
+  const compact=(text||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const allowed='KMFEBRL';
+  for(let i=0;i<compact.length-3;i++){
+    const first=compact[i];
+    if(!allowed.includes(first)) continue;
+    let tail=compact.slice(i+1,i+4)
+      .replace(/O/g,'0')
+      .replace(/[IL]/g,'1')
+      .replace(/S/g,'5')
+      .replace(/B/g,'8');
+    const code=first+tail;
+    if(/^[KMFEBRL]\d{3}$/.test(code)) return code;
+  }
+  return '';
+}
+
+async function recognizeCardText(){
+  if(scannerBusy)return;
+  if(!window.Tesseract){alert('文字辨識模組尚未載入，請重新整理頁面後再試。');return;}
+  const video=document.getElementById('scannerVideo');
+  const canvas=document.getElementById('scannerCanvas');
+  const status=document.getElementById('scannerStatus');
+  if(!video||video.readyState<2){status.textContent='相機尚未準備完成。';return;}
+
+  scannerBusy=true;
+  status.textContent='正在辨識卡號文字…';
+  try{
+    const vw=video.videoWidth,vh=video.videoHeight;
+    const sx=Math.floor(vw*0.12), sy=Math.floor(vh*0.38);
+    const sw=Math.floor(vw*0.76), sh=Math.floor(vh*0.24);
+    canvas.width=sw*2;canvas.height=sh*2;
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(video,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
+
+    const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+    const d=img.data;
+    for(let i=0;i<d.length;i+=4){
+      const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+      const v=g>150?255:0;
+      d[i]=d[i+1]=d[i+2]=v;
+    }
+    ctx.putImageData(img,0,0);
+
+    const result=await Tesseract.recognize(canvas,'eng',{
+      logger:m=>{
+        if(m.status==='recognizing text') status.textContent=`正在辨識卡號… ${Math.round((m.progress||0)*100)}%`;
+      },
+      tessedit_char_whitelist:'KMFEBRL0123456789'
+    });
+
+    const raw=result?.data?.text||'';
+    const code=extractCardCodeFromText(raw);
+    if(!code){
+      status.textContent=`沒有辨識到卡號。辨識結果：${raw.trim()||'無'}。請靠近一點並保持卡片水平。`;
+      scannerBusy=false;
+      return;
+    }
+
+    status.textContent=`辨識成功：${code}`;
+    handleScannedCode(code);
+  }catch(e){
+    status.textContent='文字辨識失敗，請再試一次。';
+    scannerBusy=false;
+  }
+}
+
+function handleScannedCode(code){
+  code=normalizeCode(code);
+  if(!cardDB[code]){
+    const status=document.getElementById('scannerStatus');
+    if(status) status.textContent=`辨識到 ${code}，但資料庫沒有這張卡。`;
+    scannerBusy=false;
+    return;
+  }
+
+  if(scannerMode==='setup'){
+    pendingCardCode=code;
+    const input=document.getElementById('cardCode');if(input) input.value=code;
+    const s=document.getElementById('setupScanStatus');if(s) s.textContent=`已辨識：${code} ${cardDB[code].name||''}`;
+    stopScanner();
+    return;
+  }
+
+  if(scannerMode==='battle'){
+    if(cardDB[code].type!=='equipment'){
+      const status=document.getElementById('scannerStatus');
+      if(status) status.textContent=`${code} 不是裝備卡，請辨識 E001～E005。`;
+      scannerBusy=false;
+      return;
+    }
+    stopScanner();
+    useEquipmentInBattle(code,cardDB[code]);
+    return;
+  }
+
+  const input=document.getElementById('cardCode');
+  if(input) input.value=code;
+  stopScanner();
+  identifyCard();
+}
 
 document.addEventListener('DOMContentLoaded',()=>{
   loadDatabase().catch(e=>renderError('資料庫載入失敗',e.message));
