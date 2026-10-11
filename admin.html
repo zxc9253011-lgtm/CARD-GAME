@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>不老村守衛戰｜卡牌管理後台</title>
+<style>
+:root{--green:#365d4b;--paper:#fffdf8;--line:#cdbf9f;--bg:#f3efe6;--red:#b65151;--blue:#55769c;--gold:#a8791f}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(160deg,#eee7db,#f8f4ec);font-family:"Microsoft JhengHei","PingFang TC",Arial,sans-serif;color:#2e2a26}.app{max-width:1180px;margin:auto;padding:20px}.panel,header{background:#fff;border:2px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px;box-shadow:0 8px 20px rgba(0,0,0,.05)}header{border:3px solid var(--green)}h1,h2,h3{margin-top:0}h1{color:#294b3b}.sub,.note{color:#6b655d}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}label{display:block;font-weight:800;margin-bottom:6px}input,select,textarea{width:100%;padding:11px 12px;border:2px solid var(--line);border-radius:10px;font-size:16px;background:#fffdf8}textarea{min-height:90px;resize:vertical}button,.btn{border:0;border-radius:10px;padding:11px 15px;background:var(--green);color:#fff;font-weight:800;font-size:15px;cursor:pointer;text-decoration:none;display:inline-block}button.gray,.btn.gray{background:#666}button.red{background:var(--red)}button.blue{background:var(--blue)}button.gold{background:var(--gold)}.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.hidden{display:none!important}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#eee7d8;font-size:12px;font-weight:800}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.stat{background:#f7f4ed;border:2px solid #d7c9ac;border-radius:14px;text-align:center;padding:12px}.big{font-size:26px;font-weight:900}.cards{display:grid;gap:10px}.cardrow{border:2px solid #d8cbaa;border-radius:14px;padding:12px;background:#fffdf8;display:grid;grid-template-columns:90px 1fr auto;gap:12px;align-items:center}.code{font-size:20px;font-weight:900}.rowactions{display:flex;gap:6px;flex-wrap:wrap}.rowactions button{padding:7px 10px;font-size:13px}.preview{background:#1f1f1f;color:#f5f5f5;border-radius:12px;padding:14px;overflow:auto;max-height:420px;white-space:pre-wrap;font-family:Consolas,monospace;font-size:13px}.warn{background:#fff4d8;border:2px solid #e1c06e;border-radius:12px;padding:12px}.ok{background:#e9f5ec;border:2px solid #99c3a5;border-radius:12px;padding:10px;margin-top:10px}.toolbar{display:grid;grid-template-columns:1fr 220px;gap:10px}@media(max-width:800px){.grid,.grid3,.stats,.toolbar{grid-template-columns:1fr}.cardrow{grid-template-columns:1fr}.rowactions{justify-content:flex-start}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <h1>🗂️ 不老村守衛戰｜卡牌管理後台</h1>
+  <div class="sub">新增、編輯、刪除、搜尋卡牌，最後匯出新的 cards.json。</div>
+  <div class="controls"><a class="btn gray" href="./">← 回遊戲首頁</a></div>
+</header>
+
+<section class="panel">
+  <h2>📊 資料庫狀態</h2>
+  <div class="stats">
+    <div class="stat">總卡牌<div class="big" id="totalCount">0</div></div>
+    <div class="stat">知識卡<div class="big" id="knowledgeCount">0</div></div>
+    <div class="stat">怪獸卡<div class="big" id="monsterCount">0</div></div>
+    <div class="stat">裝備卡<div class="big" id="equipmentCount">0</div></div>
+  </div>
+  <div id="loadMsg" class="ok">正在讀取 cards.json…</div>
+</section>
+
+<section class="panel">
+  <h2 id="formTitle">➕ 新增卡牌</h2>
+  <div class="grid3">
+    <div><label>卡牌類型</label><select id="type" onchange="onTypeChange()">
+      <option value="knowledge">知識卡</option><option value="monster">怪獸卡</option><option value="fate">命運卡</option><option value="equipment">裝備卡</option><option value="boss">魔王卡</option><option value="role">身分卡</option><option value="life">生命卡</option>
+    </select></div>
+    <div><label>卡號</label><input id="code" placeholder="例如 K003"></div>
+    <div><label>名稱</label><input id="name" placeholder="卡牌名稱"></div>
+  </div>
+  <div class="note" id="nextHint"></div>
+
+  <div id="knowledgeFields" class="typeFields">
+    <div class="grid"><div><label>問題</label><textarea id="question"></textarea></div><div><label>衛教內容</label><textarea id="teach"></textarea></div></div>
+    <div class="grid3"><div><label>A 選項</label><input id="optA"></div><div><label>B 選項</label><input id="optB"></div><div><label>C 選項</label><input id="optC"></div></div>
+    <div style="margin-top:12px"><label>正確答案</label><select id="answer"><option>A</option><option>B</option><option>C</option></select></div>
+  </div>
+
+  <div id="monsterFields" class="typeFields hidden">
+    <div class="grid3"><div><label>HP（5～10）</label><input id="monsterHp" type="number" min="5" max="10" value="5"></div><div><label>ATK</label><input id="monsterAtk" type="number" min="0" value="2"></div><div><label>弱點</label><select id="weak"><option>力量</option><option>平衡</option><option>心肺</option><option>活動度</option><option>認知</option><option>無</option></select></div></div>
+    <div style="margin-top:12px"><label>特殊說明</label><textarea id="special"></textarea></div>
+  </div>
+
+  <div id="fateFields" class="typeFields hidden">
+    <div class="grid"><div><label>事件效果文字</label><textarea id="fateEffect"></textarea></div><div><label>生命變化</label><input id="hpChange" type="number" value="0"><div class="note">例如 +2 填 2，-2 填 -2。</div></div></div>
+  </div>
+
+  <div id="equipmentFields" class="typeFields hidden">
+    <div class="grid3"><div><label>類型</label><select id="category"><option>力量</option><option>平衡</option><option>心肺</option><option>活動度</option><option>認知</option></select></div><div><label>動作</label><input id="move"></div><div><label>戰鬥動作類型</label><select id="combatAction"><option value="attack">攻擊 attack</option><option value="shield">防禦 shield</option><option value="heal">補血 heal</option><option value="cognitive">認知 cognitive</option></select></div></div>
+    <div class="grid3" style="margin-top:12px"><div><label>主要數值 value</label><input id="combatValue" type="number" value="1"></div><div><label>弱點額外傷害 weakDamage</label><input id="weakDamage" type="number" value="0"></div><div><label>認知弱點值 weakValue</label><input id="weakValue" type="number" value="0"></div></div>
+    <div style="margin-top:12px"><label>效果說明</label><textarea id="equipmentEffect"></textarea></div>
+  </div>
+
+  <div id="bossFields" class="typeFields hidden">
+    <div class="grid3"><div><label>階段</label><input id="stage" type="number" min="1" value="1"></div><div><label>HP（戰鬥階段建議 20）</label><input id="bossHp" type="number" min="0" value="0"></div><div><label>ATK</label><input id="bossAtk" type="number" min="0" value="2"></div></div>
+    <div style="margin-top:12px"><label>效果</label><textarea id="bossEffect"></textarea></div>
+  </div>
+
+  <div id="roleFields" class="typeFields hidden"><label>身分說明</label><textarea id="roleDescription"></textarea></div>
+  <div id="lifeFields" class="typeFields hidden"><label>生命值</label><input id="lifeValue" type="number" min="1" value="2"></div>
+
+  <div class="controls">
+    <button onclick="saveCard()" id="saveBtn">新增到資料庫草稿</button>
+    <button class="gray" onclick="resetForm()">清空表單</button>
+  </div>
+  <div id="formMsg"></div>
+</section>
+
+<section class="panel">
+  <h2>📚 目前卡牌</h2>
+  <div class="toolbar"><input id="search" oninput="renderList()" placeholder="搜尋卡號或名稱"><select id="filter" onchange="renderList()"><option value="all">全部類型</option><option value="knowledge">知識卡</option><option value="monster">怪獸卡</option><option value="fate">命運卡</option><option value="equipment">裝備卡</option><option value="boss">魔王卡</option><option value="role">身分卡</option><option value="life">生命卡</option></select></div>
+  <div class="cards" id="cardList" style="margin-top:12px"></div>
+</section>
+
+<section class="panel">
+  <h2>💾 匯入／匯出</h2>
+  <div class="warn"><b>重要：</b>這個 GitHub Pages 後台無法直接安全寫回 GitHub。按「下載 cards.json」後，把檔案上傳到 GitHub 並覆蓋原本的 <code>cards.json</code>，網站才會正式使用新資料。</div>
+  <div class="controls">
+    <button class="blue" onclick="downloadJson()">⬇️ 下載 cards.json</button>
+    <button class="gold" onclick="document.getElementById('importFile').click()">⬆️ 匯入 cards.json</button>
+    <button class="gray" onclick="reloadLive()">↻ 重新讀取網站正式資料</button>
+    <input type="file" id="importFile" accept="application/json,.json" class="hidden" onchange="importJson(event)">
+  </div>
+  <h3 style="margin-top:16px">JSON 預覽</h3><pre class="preview" id="jsonPreview"></pre>
+</section>
+</div>
+<script>
+let db={version:5,cards:{}};let editingCode=null;
+const prefix={knowledge:'K',monster:'M',fate:'F',equipment:'E',boss:'B',role:'R',life:'L'};
+const labels={knowledge:'知識卡',monster:'怪獸卡',fate:'命運卡',equipment:'裝備卡',boss:'魔王卡',role:'身分卡',life:'生命卡'};
+
+async function loadLive(){
+  const res=await fetch('./cards.json?admin='+Date.now(),{cache:'no-store'});if(!res.ok)throw new Error('無法讀取 cards.json');
+  db=await res.json();if(!db.cards)db.cards={};db.version=Math.max(Number(db.version)||1,5);
+  localStorage.setItem('cardGameAdminDraft',JSON.stringify(db));refresh();document.getElementById('loadMsg').textContent='✅ 已讀取網站目前 cards.json，並建立本機草稿。';
+}
+function loadDraft(){const raw=localStorage.getItem('cardGameAdminDraft');if(!raw)return false;try{db=JSON.parse(raw);if(!db.cards)db.cards={};refresh();document.getElementById('loadMsg').textContent='📝 已載入上次尚未匯出的本機草稿。';return true}catch(e){return false}}
+function persist(){db.version=Math.max(Number(db.version)||1,5);localStorage.setItem('cardGameAdminDraft',JSON.stringify(db));refresh()}
+function refresh(){updateStats();renderList();updatePreview();updateNextHint()}
+function updateStats(){const vals=Object.values(db.cards);document.getElementById('totalCount').textContent=vals.length;document.getElementById('knowledgeCount').textContent=vals.filter(x=>x.type==='knowledge').length;document.getElementById('monsterCount').textContent=vals.filter(x=>x.type==='monster').length;document.getElementById('equipmentCount').textContent=vals.filter(x=>x.type==='equipment').length}
+function nextCode(type){const p=prefix[type];let max=0;Object.keys(db.cards).forEach(c=>{const m=c.match(new RegExp('^'+p+'(\\d{3})$'));if(m)max=Math.max(max,Number(m[1]))});return p+String(max+1).padStart(3,'0')}
+function updateNextHint(){const t=document.getElementById('type').value;document.getElementById('nextHint').textContent='建議下一個編號：'+nextCode(t);if(!editingCode&&!document.getElementById('code').value)document.getElementById('code').value=nextCode(t)}
+function onTypeChange(){document.querySelectorAll('.typeFields').forEach(x=>x.classList.add('hidden'));document.getElementById(document.getElementById('type').value+'Fields').classList.remove('hidden');if(!editingCode)document.getElementById('code').value='';updateNextHint()}
+function val(id){return document.getElementById(id).value.trim()}
+function num(id){return Number(document.getElementById(id).value)||0}
+function saveCard(){
+  const type=val('type'),code=val('code').toUpperCase(),name=val('name');const p=prefix[type];
+  if(!new RegExp('^'+p+'\\d{3}$').test(code)){showMsg('❌ 卡號格式不正確。'+labels[type]+' 必須使用 '+p+'001 這種格式。',false);return}
+  if(!name){showMsg('❌ 請輸入卡牌名稱。',false);return}
+  if(!editingCode&&db.cards[code]){showMsg('❌ '+code+' 已存在，請換卡號或點該卡的「編輯」。',false);return}
+  let c={type,name};
+  if(type==='knowledge'){c.question=val('question');c.options=['A. '+val('optA').replace(/^A\.\s*/i,''),'B. '+val('optB').replace(/^B\.\s*/i,''),'C. '+val('optC').replace(/^C\.\s*/i,'')];c.answer=val('answer');c.teach=val('teach')}
+  if(type==='monster'){const hp=Math.min(10,Math.max(5,num('monsterHp')));c.hp=hp;c.atk=num('monsterAtk');c.weak=val('weak');c.special=val('special')}
+  if(type==='fate'){c.effect=val('fateEffect');c.hpChange=num('hpChange')}
+  if(type==='equipment'){c.category=val('category');c.move=val('move');c.effect=val('equipmentEffect');c.combat={action:val('combatAction'),value:num('combatValue')};if(num('weakDamage'))c.combat.weakDamage=num('weakDamage');if(num('weakValue'))c.combat.weakValue=num('weakValue')}
+  if(type==='boss'){c.stage=num('stage');if(num('bossHp')>0)c.hp=num('bossHp');c.atk=num('bossAtk');c.effect=val('bossEffect')}
+  if(type==='role'){c.description=val('roleDescription')}
+  if(type==='life'){c.value=num('lifeValue')}
+  if(editingCode&&editingCode!==code)delete db.cards[editingCode];db.cards[code]=c;editingCode=null;persist();showMsg('✅ '+code+' 已存入本機資料庫草稿。',true);resetForm(false)
+}
+function showMsg(t,ok){const el=document.getElementById('formMsg');el.className=ok?'ok':'warn';el.textContent=t}
+function resetForm(clearMsg=true){editingCode=null;document.getElementById('formTitle').textContent='➕ 新增卡牌';document.getElementById('saveBtn').textContent='新增到資料庫草稿';['name','question','teach','optA','optB','optC','special','fateEffect','move','equipmentEffect','bossEffect','roleDescription'].forEach(id=>document.getElementById(id).value='');document.getElementById('code').value='';if(clearMsg)document.getElementById('formMsg').innerHTML='';onTypeChange()}
+function editCard(code){const c=db.cards[code];if(!c)return;editingCode=code;document.getElementById('formTitle').textContent='✏️ 編輯 '+code;document.getElementById('saveBtn').textContent='更新卡牌';document.getElementById('type').value=c.type;onTypeChange();editingCode=code;document.getElementById('code').value=code;document.getElementById('name').value=c.name||'';
+  if(c.type==='knowledge'){document.getElementById('question').value=c.question||'';document.getElementById('teach').value=c.teach||'';document.getElementById('optA').value=(c.options?.[0]||'').replace(/^A\.\s*/i,'');document.getElementById('optB').value=(c.options?.[1]||'').replace(/^B\.\s*/i,'');document.getElementById('optC').value=(c.options?.[2]||'').replace(/^C\.\s*/i,'');document.getElementById('answer').value=c.answer||'A'}
+  if(c.type==='monster'){document.getElementById('monsterHp').value=c.hp||5;document.getElementById('monsterAtk').value=c.atk||0;document.getElementById('weak').value=c.weak||'無';document.getElementById('special').value=c.special||''}
+  if(c.type==='fate'){document.getElementById('fateEffect').value=c.effect||'';document.getElementById('hpChange').value=c.hpChange||0}
+  if(c.type==='equipment'){document.getElementById('category').value=c.category||'力量';document.getElementById('move').value=c.move||'';document.getElementById('equipmentEffect').value=c.effect||'';document.getElementById('combatAction').value=c.combat?.action||'attack';document.getElementById('combatValue').value=c.combat?.value||0;document.getElementById('weakDamage').value=c.combat?.weakDamage||0;document.getElementById('weakValue').value=c.combat?.weakValue||0}
+  if(c.type==='boss'){document.getElementById('stage').value=c.stage||1;document.getElementById('bossHp').value=c.hp||0;document.getElementById('bossAtk').value=c.atk||0;document.getElementById('bossEffect').value=c.effect||''}
+  if(c.type==='role')document.getElementById('roleDescription').value=c.description||'';if(c.type==='life')document.getElementById('lifeValue').value=c.value||2;window.scrollTo({top:document.getElementById('formTitle').offsetTop-20,behavior:'smooth'})
+}
+function deleteCard(code){if(!confirm('確定刪除 '+code+'？這只會刪除目前草稿。'))return;delete db.cards[code];persist()}
+function renderList(){const q=val('search').toUpperCase(),f=val('filter');const list=document.getElementById('cardList');const rows=Object.entries(db.cards).filter(([code,c])=>(f==='all'||c.type===f)&&(!q||code.includes(q)||(c.name||'').toUpperCase().includes(q))).sort((a,b)=>a[0].localeCompare(b[0]));list.innerHTML=rows.length?rows.map(([code,c])=>`<div class="cardrow"><div><span class="badge">${labels[c.type]||c.type}</span><div class="code">${code}</div></div><div><b>${escapeHtml(c.name||'')}</b><div class="note">${summary(c)}</div></div><div class="rowactions"><button class="blue" onclick="editCard('${code}')">編輯</button><button class="red" onclick="deleteCard('${code}')">刪除</button></div></div>`).join(''):'<p class="note">沒有符合條件的卡牌。</p>'}
+function summary(c){if(c.type==='monster')return `HP ${c.hp}｜ATK ${c.atk}｜弱點 ${c.weak}`;if(c.type==='equipment')return `${c.category||''}｜${c.move||''}`;if(c.type==='fate')return c.effect||'';if(c.type==='knowledge')return c.question||'';if(c.type==='boss')return `第 ${c.stage||'?'} 階段｜${c.effect||''}`;return c.description||('生命值 '+(c.value||''))}
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
+function updatePreview(){document.getElementById('jsonPreview').textContent=JSON.stringify(db,null,2)}
+function downloadJson(){const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cards.json';a.click();URL.revokeObjectURL(a.href)}
+function importJson(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(!j.cards||typeof j.cards!=='object')throw new Error('缺少 cards');db=j;persist();document.getElementById('loadMsg').textContent='✅ 已匯入 '+file.name+' 到本機草稿。'}catch(err){alert('JSON 格式錯誤：'+err.message)}};r.readAsText(file,'utf-8');e.target.value=''}
+async function reloadLive(){if(!confirm('重新讀取網站 cards.json 會覆蓋目前本機草稿，確定？'))return;localStorage.removeItem('cardGameAdminDraft');await loadLive()}
+window.addEventListener('DOMContentLoaded',async()=>{onTypeChange();if(!loadDraft()){try{await loadLive()}catch(e){document.getElementById('loadMsg').textContent='❌ '+e.message}}});
+</script>
+</body>
+</html>
