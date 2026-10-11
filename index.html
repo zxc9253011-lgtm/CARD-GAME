@@ -7,9 +7,9 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>不老村守衛戰｜遊戲輔助系統</title>
-<link rel="stylesheet" href="./style.css?v=20261011-6">
+<link rel="stylesheet" href="./style.css?v=20261011-7">
 <style>
-.scan-modal{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}.scan-modal.hidden{display:none}.scan-box{width:min(560px,100%);background:#fff;border-radius:18px;padding:16px}.scan-box h2{margin:0 0 8px}.scan-video-wrap{position:relative;background:#111;border-radius:14px;overflow:hidden;aspect-ratio:3/4;max-height:68vh}.scan-video-wrap video{width:100%;height:100%;object-fit:cover;display:block}.scan-frame{position:absolute;left:10%;right:10%;top:38%;bottom:38%;border:4px solid #fff;border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.22);pointer-events:none}.scan-frame::after{content:'請把卡號放在框內，例如 M002';position:absolute;left:0;right:0;bottom:-34px;text-align:center;color:#fff;font-size:14px;font-weight:700}.scan-status{margin:12px 0;font-weight:700;min-height:24px}.scan-actions{display:flex;gap:8px;flex-wrap:wrap}.scan-actions button{flex:1}.setup-scan{margin-top:16px;padding:14px;border:2px dashed #c9b98f;border-radius:12px;background:#fffdf8}
+.scan-modal{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}.scan-modal.hidden{display:none}.scan-box{width:min(560px,100%);background:#fff;border-radius:18px;padding:16px}.scan-box h2{margin:0 0 8px}.scan-video-wrap{position:relative;background:#111;border-radius:14px;overflow:hidden;aspect-ratio:3/4;max-height:68vh}.scan-video-wrap video{width:100%;height:100%;object-fit:cover;display:block}.scan-frame{position:absolute;left:10%;right:10%;top:38%;bottom:38%;border:4px solid #fff;border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.22);pointer-events:none}.scan-frame::after{content:'只放卡號，例如 M002';position:absolute;left:0;right:0;bottom:-34px;text-align:center;color:#fff;font-size:14px;font-weight:700}.scan-status{margin:12px 0;font-weight:700;min-height:24px}.scan-actions{display:flex;gap:8px;flex-wrap:wrap}.scan-actions button{flex:1}.setup-scan{margin-top:16px;padding:14px;border:2px dashed #c9b98f;border-radius:12px;background:#fffdf8}
 </style>
 </head>
 <body>
@@ -30,7 +30,7 @@
 
   <div class="setup-scan">
     <b>📷 開局前辨識卡牌文字</b>
-    <p class="note">將卡牌上的編號（例如 M002、K001）對準鏡頭即可辨識；開始遊戲後會自動載入。</p>
+    <p class="note">只需要讓卡號（例如 M002、K001）填滿辨識框，不要把整張卡塞進框內。</p>
     <div class="controls"><button onclick="startScanner('setup')">📷 開啟文字掃描</button></div>
     <div id="setupScanStatus" class="note">尚未辨識卡牌</div>
   </div>
@@ -50,7 +50,7 @@
   <div style="margin-top:14px"><b>冒險進度</b><div class="progressbar"><div class="progressfill" id="progressfill"></div></div></div>
 
   <h2 style="margin-top:22px">📷 辨識／輸入卡號</h2>
-  <p class="note">卡牌上建議將編號印成大字，例如 <b>M001</b>、<b>E003</b>。</p>
+  <p class="note">卡號建議使用黑字、白底、粗體，並至少佔辨識框寬度的一半以上。</p>
   <div class="grid">
     <input id="cardCode" placeholder="輸入 K001、M001、F001、E001、B001">
     <button onclick="identifyCard()">讀取卡牌</button>
@@ -63,21 +63,20 @@
 <div id="scannerModal" class="scan-modal hidden">
   <div class="scan-box">
     <h2>📷 辨識卡號文字</h2>
-    <p class="note">請只把卡牌上的編號放進白框，例如 M002。建議黑字白底、字體粗、至少 18pt。</p>
+    <p class="note">把「卡號本身」放大填滿白框。程式只讀 K/M/F/E/B/R/L + 數字。</p>
     <div class="scan-video-wrap">
       <video id="scannerVideo" playsinline muted></video>
       <div class="scan-frame"></div>
     </div>
-    <canvas id="scannerCanvas" style="display:none"></canvas>
     <div id="scannerStatus" class="scan-status">準備開啟相機…</div>
     <div class="scan-actions">
-      <button onclick="recognizeCardText()">🔎 辨識卡號文字</button>
+      <button onclick="recognizeCardText()">🔎 辨識卡號</button>
       <button onclick="stopScanner()">關閉相機</button>
     </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
-<script src="./app.js?v=20261011-6"></script>
+<script src="./app.js?v=20261011-7"></script>
 </body>
 </html>
